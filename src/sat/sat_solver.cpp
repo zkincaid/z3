@@ -110,7 +110,7 @@ namespace sat {
                 buffer.reset();
                 for (unsigned i = 0; i < c.size(); i++)
                     buffer.push_back(c[i]);
-                mk_clause(buffer.size(), buffer.c_ptr());
+                mk_clause(buffer);
             }
         }
     }
@@ -534,10 +534,6 @@ namespace sat {
         return found_undef ? l_undef : l_false;
     }
 
-    void solver::initialize_soft(unsigned sz, literal const* lits, double const* weights) {
-        m_wsls.set_soft(sz, lits, weights);
-    }
-
     // -----------------------
     //
     // Propagation
@@ -714,7 +710,7 @@ namespace sat {
     // Search
     //
     // -----------------------
-    lbool solver::check(unsigned num_lits, literal const* lits) {
+    lbool solver::check(unsigned num_lits, literal const* lits, double const* weights, double max_weight) {
         pop_to_base_level();
         IF_VERBOSE(2, verbose_stream() << "(sat.sat-solver)\n";);
         SASSERT(scope_lvl() == 0);
@@ -729,7 +725,7 @@ namespace sat {
             init_search();
             propagate(false);
             if (inconsistent()) return l_false;
-            init_assumptions(num_lits, lits);
+            init_assumptions(num_lits, lits, weights, max_weight);
             propagate(false);
             if (check_inconsistent()) return l_false;
             cleanup();
@@ -892,10 +888,13 @@ namespace sat {
         }
     }
 
-    void solver::init_assumptions(unsigned num_lits, literal const* lits) {
+    void solver::init_assumptions(unsigned num_lits, literal const* lits, double const* weights, double max_weight) {
         if (num_lits == 0 && m_user_scope_literals.empty()) {
             return;
         }
+        m_replay_lit = null_literal;        
+
+    retry_init_assumptions:
         m_assumptions.reset();
         m_assumption_set.reset();        
         push();
@@ -920,44 +919,144 @@ namespace sat {
             assign(nlit, justification());                   
         }
 
+        if (weights) {
+            if (m_config.m_optimize_model) {
+                m_wsls.set_soft(num_lits, lits, weights);
+            }
+            else if (!init_weighted_assumptions(num_lits, lits, weights, max_weight)) {
+                goto retry_init_assumptions;
+            }
+            return;
+        }
+
         for (unsigned i = 0; !inconsistent() && i < num_lits; ++i) {
             literal lit = lits[i];
-            SASSERT(is_external((lit).var()));  
+            SASSERT(is_external(lit.var()));  
             m_assumption_set.insert(lit);       
-
-            if (m_config.m_soft_assumptions) {
-                switch(value(lit)) {
-                case l_undef:
-                    m_assumptions.push_back(lit);       
-                    assign(lit, justification());
-                    break;
-                case l_false: {
-                    set_conflict(lit);
-                    flet<bool> _min1(m_config.m_minimize_core, false);
-                    flet<bool> _min2(m_config.m_minimize_core_partial, false);
-                    resolve_conflict_for_unsat_core();
-                    SASSERT(m_core.size() <= m_assumptions.size());
-                    if (m_core.size() <= 3 || 
-                        m_core.size() <= i - m_assumptions.size() + 1) {
-                        return;
-                    }
-                    else {
-                        m_inconsistent = false;
-                    }
-                    break;
-                }
-                case l_true:
-                    break;
-                }
-                propagate(false);         
-            }
-            else {
-                m_assumptions.push_back(lit);       
-                assign(lit, justification());       
-                //        propagate(false);         
-            }
+            m_assumptions.push_back(lit);       
+            assign(lit, justification());       
         }
     }
+
+    void solver::resolve_weighted() {
+        flet<bool> _min1(m_config.m_minimize_core, false);
+        flet<bool> _min2(m_config.m_minimize_core_partial, false);
+        m_conflict_lvl = m_scope_lvl;
+        resolve_conflict_for_unsat_core();
+    }
+
+    bool solver::init_weighted_assumptions(unsigned num_lits, literal const* lits, double const* weights, double max_weight) {
+        double weight = 0;
+        literal_vector blocker;
+        literal_vector min_core;
+        bool min_core_valid = false;
+        for (unsigned i = 0; !inconsistent() && i < num_lits; ++i) {
+            literal lit = lits[i];
+            SASSERT(is_external(lit.var()));  
+            TRACE("sat", tout << "propagate: " << lit << " " << value(lit) << "\n";);
+            SASSERT(m_scope_lvl == 1);
+
+            if (m_replay_lit == lit && value(lit) == l_undef) {
+                mk_clause(m_replay_clause);
+                propagate(false);
+                SASSERT(inconsistent() || value(lit) == l_false);
+                if (inconsistent()) {
+                    IF_VERBOSE(1, verbose_stream() << lit << " cannot be false either\n";);
+                    return true;
+                }
+                IF_VERBOSE(1, verbose_stream() << lit << " set to false\n";);
+                SASSERT(value(lit) == l_false);
+                if (m_replay_clause.size() < min_core.size() || !min_core_valid) {
+                    min_core.reset();
+                    min_core.append(m_replay_clause);
+                    min_core_valid = true;
+                }
+                m_replay_clause.reset();
+                m_replay_lit = null_literal;
+                continue;
+            }
+            switch(value(lit)) {
+            case l_undef:
+                m_assumption_set.insert(lit);       
+                m_assumptions.push_back(lit);       
+                assign(lit, justification());
+                propagate(false);
+                if (inconsistent()) {
+                    resolve_weighted();
+                    m_replay_clause.reset();
+                    m_replay_lit = lit;
+                    // next time around, the negation of the literal will be implied.
+                    for (unsigned j = 0; j < m_core.size(); ++j) {
+                        m_replay_clause.push_back(~m_core[j]);
+                    }
+                    pop_to_base_level();
+                    IF_VERBOSE(11, 
+                               verbose_stream() << "undef: " << lit << " : " << m_replay_clause << "\n";
+                               verbose_stream() << m_assumptions << "\n";);
+                    return false;
+                }
+                blocker.push_back(~lit);
+                break;
+                
+            case l_false: 
+                m_assumption_set.insert(lit);       
+                m_assumptions.push_back(lit);       
+                SASSERT(!inconsistent());
+                set_conflict(justification(), ~lit);
+                resolve_weighted();
+                weight += weights[i];
+                TRACE("sat", tout << "core: " << m_core << "\nassumptions: " << m_assumptions << "\n";);
+                SASSERT(m_core.size() <= m_assumptions.size());
+                SASSERT(m_assumptions.size() <= i+1);
+                if (m_core.size() <= 3) {
+                    m_inconsistent = true;
+                    TRACE("opt", tout << "found small core: " << m_core << "\n";); 
+                    IF_VERBOSE(11, verbose_stream() << "small core: " << m_core << "\n";);
+                    return true;
+                }
+                if (weight >= max_weight) {
+                    ++m_stats.m_blocked_corr_sets;
+                    TRACE("opt", tout << "blocking soft correction set: " << blocker << "\n";); 
+                    // block the current correction set candidate.
+                    IF_VERBOSE(11, verbose_stream() << "blocking " << blocker << "\n";);
+                    pop_to_base_level();
+                    mk_clause(blocker);
+                    return false;
+                }
+                VERIFY(m_assumptions.back() == m_assumption_set.pop());
+                m_assumptions.pop_back();
+                m_inconsistent = false;                
+                if (!min_core_valid || m_core.size() < min_core.size()) {
+                    min_core.reset();
+                    min_core.append(m_core);
+                    min_core_valid = true;
+                }
+                blocker.push_back(lit);
+                break;
+            case l_true:
+                break;
+            }
+        }
+        TRACE("sat", tout << "initialized\n";);
+        IF_VERBOSE(11, verbose_stream() << "Blocker: " << blocker << " - " << min_core << "\n";);
+        if (min_core_valid && blocker.size() > min_core.size()) {
+            pop_to_base_level();
+            push();
+            m_assumption_set.reset();
+            m_assumptions.reset();
+            for (unsigned i = 0; i < min_core.size(); ++i) {
+                literal lit = min_core[i];
+                SASSERT(is_external(lit.var()));  
+                m_assumption_set.insert(lit);       
+                m_assumptions.push_back(lit);       
+                assign(lit, justification());       
+            }
+            propagate(false);
+            SASSERT(inconsistent());
+        }
+        return true;
+    }
+
 
     void solver::reinit_assumptions() {
         if (tracking_assumptions() && scope_lvl() == 0) {
@@ -1073,6 +1172,12 @@ namespace sat {
         }
     }
 
+    void solver::set_model(model const& mdl) {
+        m_model.reset();
+        m_model.append(mdl);
+        m_model_is_current = !m_model.empty();
+    }
+
     void solver::mk_model() {
         m_model.reset();
         m_model_is_current = true;
@@ -1085,8 +1190,6 @@ namespace sat {
         TRACE("sat_mc_bug", m_mc.display(tout););
         if (m_config.m_optimize_model) {
             m_wsls.opt(0, 0, false);
-            m_model.reset();
-            m_model.append(m_wsls.get_model());
         }
         m_mc(m_model);
         TRACE("sat", for (bool_var v = 0; v < num; v++) tout << v << ": " << m_model[v] << "\n";);
@@ -1776,9 +1879,7 @@ namespace sat {
             // apply optional clause minimization by detecting subsumed literals.
             // initial experiment suggests it has no effect.
             m_mus(); // ignore return value on cancelation.
-            m_model.reset();
-            m_model.append(m_mus.get_model());            
-            m_model_is_current = !m_model.empty();
+            set_model(m_mus.get_model());
         }
     }
 
@@ -2474,6 +2575,7 @@ namespace sat {
     //
     // -----------------------
     bool solver::check_invariant() const {
+        if (m_cancel) return true;
         integrity_checker checker(*this);
         SASSERT(checker());
         return true;
@@ -2583,6 +2685,50 @@ namespace sat {
             }
         }
     }
+
+    void solver::display_wcnf(std::ostream & out, unsigned sz, literal const* lits, unsigned const* weights) const {
+        unsigned max_weight = 0;
+        for (unsigned i = 0; i < sz; ++i) {
+            max_weight = std::max(max_weight, weights[i]);
+        }
+        ++max_weight;
+
+        out << "p wcnf " << num_vars() << " " << num_clauses() + sz << " " << max_weight << "\n";
+
+        for (unsigned i = 0; i < m_trail.size(); i++) {
+            out << max_weight << " " << dimacs_lit(m_trail[i]) << " 0\n";
+        }
+        vector<watch_list>::const_iterator it  = m_watches.begin();
+        vector<watch_list>::const_iterator end = m_watches.end();
+        for (unsigned l_idx = 0; it != end; ++it, ++l_idx) {
+            literal l = ~to_literal(l_idx);
+            watch_list const & wlist = *it;
+            watch_list::const_iterator it2  = wlist.begin();
+            watch_list::const_iterator end2 = wlist.end();
+            for (; it2 != end2; ++it2) {
+                if (it2->is_binary_clause() && l.index() < it2->get_literal().index())
+                    out << max_weight << " " << dimacs_lit(l) << " " << dimacs_lit(it2->get_literal()) << " 0\n";
+            }
+        }
+        clause_vector const * vs[2] = { &m_clauses, &m_learned };
+        for (unsigned i = 0; i < 2; i++) {
+            clause_vector const & cs = *(vs[i]);
+            clause_vector::const_iterator it  = cs.begin();
+            clause_vector::const_iterator end = cs.end();
+            for (; it != end; ++it) {
+                clause const & c = *(*it);
+                unsigned sz = c.size();
+                out << max_weight << " ";
+                for (unsigned j = 0; j < sz; j++)
+                    out << dimacs_lit(c[j]) << " ";
+                out << "0\n";
+            }
+        }
+        for (unsigned i = 0; i < sz; ++i) {
+            out << weights[i] << " " << lits[i] << " 0\n";
+        }
+    }
+
 
     void solver::display_watches(std::ostream & out) const {
         vector<watch_list>::const_iterator it  = m_watches.begin();
@@ -2783,6 +2929,7 @@ namespace sat {
         st.update("restarts", m_restart);
         st.update("minimized lits", m_minimized_lits);
         st.update("dyn subsumption resolution", m_dyn_sub_res);
+        st.update("blocked correction sets", m_blocked_corr_sets);
     }
 
     void stats::reset() {
@@ -2801,6 +2948,7 @@ namespace sat {
         m_minimized_lits = 0;
         m_dyn_sub_res = 0;
         m_non_learned_generation = 0;
+        m_blocked_corr_sets = 0;
     }
 
     void mk_stat::display(std::ostream & out) const {

@@ -109,6 +109,14 @@ public class Optimize extends Z3Object
 	{
 	    return getLower(); 
 	}
+
+	/**
+	 * Print a string representation of the handle.
+	 **/        	   	
+        public String toString() 
+        {
+            return getValue().toString();
+        }
     }
 
     /**        
@@ -215,6 +223,15 @@ public class Optimize extends Z3Object
     private ArithExpr GetUpper(int index)
     {
 	return (ArithExpr)Expr.create(getContext(), Native.optimizeGetUpper(getContext().nCtx(), getNativeObject(), index));
+    }
+
+    /**
+     * Return a string the describes why the last to check returned unknown
+     **/
+    public String getReasonUnknown()
+    {
+        return Native.optimizeGetReasonUnknown(getContext().nCtx(),
+                getNativeObject());	
     }
     
     
