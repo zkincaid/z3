@@ -3279,11 +3279,11 @@ sig
  
  
   (** Retrieve lower bound in current model for handle *) 
-  val get_lower : handle -> int -> Expr.expr 
+  val get_lower : handle -> Expr.expr
  
  
   (** Retrieve upper bound in current model for handle *) 
-  val get_upper : handle -> int -> Expr.expr 
+  val get_upper : handle -> Expr.expr
 
  
   (** Creates a backtracking point. 

@@ -2926,11 +2926,11 @@ struct
      else  
        Some (Model.create (z3obj_gc x) q) 
  
-  let get_lower ( x : handle ) ( idx : int )  = 
-      expr_of_ptr (z3obj_gc x.opt) (Z3native.optimize_get_lower (z3obj_gnc x.opt) (z3obj_gno x.opt) idx) 
+  let get_lower ( x : handle ) =
+      expr_of_ptr (z3obj_gc x.opt) (Z3native.optimize_get_lower (z3obj_gnc x.opt) (z3obj_gno x.opt) x.h)
  
-  let get_upper ( x : handle ) ( idx : int ) =  
-      expr_of_ptr (z3obj_gc x.opt) (Z3native.optimize_get_upper (z3obj_gnc x.opt) (z3obj_gno x.opt) idx)  
+  let get_upper ( x : handle ) =
+      expr_of_ptr (z3obj_gc x.opt) (Z3native.optimize_get_upper (z3obj_gnc x.opt) (z3obj_gno x.opt) x.h)
   
   let push ( x : opt ) = Z3native.optimize_push (z3obj_gnc x) (z3obj_gno x)
  
