@@ -60,9 +60,6 @@ class lia2pb_tactic : public tactic {
             updt_params_core(p);
         }
         
-        void set_cancel(bool f) {
-            m_rw.set_cancel(f);
-        }
         
         bool is_target_core(expr * n, rational & u) {
             if (!is_uninterp_const(n))
@@ -191,11 +188,11 @@ class lia2pb_tactic : public tactic {
             return true;
         }
 
-        virtual void operator()(goal_ref const & g, 
-                                goal_ref_buffer & result, 
-                                model_converter_ref & mc, 
-                                proof_converter_ref & pc,
-                                expr_dependency_ref & core) {
+        void operator()(goal_ref const & g, 
+                        goal_ref_buffer & result, 
+                        model_converter_ref & mc, 
+                        proof_converter_ref & pc,
+                        expr_dependency_ref & core) {
             SASSERT(g->is_well_sorted());
             fail_if_proof_generation("lia2pb", g);
             m_produce_models      = g->models_enabled();
@@ -275,8 +272,9 @@ class lia2pb_tactic : public tactic {
                     }
                     TRACE("lia2pb", tout << mk_ismt2_pp(x, m) << " -> " << dep << "\n";);
                     subst.insert(x, def, 0, dep);
-                    if (m_produce_models)
+                    if (m_produce_models) {
                         mc1->insert(to_app(x)->get_decl(), def);
+                    }
                 }
             }
             
@@ -349,18 +347,10 @@ public:
     
     virtual void cleanup() {
         imp * d = alloc(imp, m_imp->m, m_params);
-        #pragma omp critical (tactic_cancel)
-        {
-            std::swap(d, m_imp);
-        }
+        std::swap(d, m_imp);        
         dealloc(d);
     }
 
-protected:
-    virtual void set_cancel(bool f) {
-        if (m_imp)
-            m_imp->set_cancel(f);
-    }
 };
 
 tactic * mk_lia2pb_tactic(ast_manager & m, params_ref const & p) {

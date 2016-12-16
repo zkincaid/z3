@@ -236,6 +236,7 @@ namespace smt {
             m_non_diff_logic_exprs(false),
             m_factory(0),
             m_nc_functor(*this),
+            m_S(m.limit()),
             m_num_simplex_edges(0) {
         }            
 
@@ -243,7 +244,7 @@ namespace smt {
             reset_eh();
         }
 
-        virtual theory * mk_fresh(context * new_ctx) { return alloc(theory_diff_logic, get_manager(), m_params); }
+        virtual theory * mk_fresh(context * new_ctx);
 
         virtual char const * get_name() const { return "difference-logic"; }
 
@@ -323,14 +324,15 @@ namespace smt {
         virtual inf_eps maximize(theory_var v, expr_ref& blocker, bool& has_shared);
         virtual inf_eps value(theory_var v);
         virtual theory_var add_objective(app* term);
-        virtual expr_ref mk_gt(theory_var v, inf_rational const& val);
-        virtual expr_ref mk_ge(filter_model_converter& fm, theory_var v, inf_rational const& val);
+        expr_ref mk_ge(filter_model_converter& fm, theory_var v, inf_eps const& val);
 
         bool internalize_objective(expr * n, rational const& m, rational& r, objective_term & objective);
 
     private:     
 
-        expr_ref mk_ineq(theory_var v, inf_rational const& val, bool is_strict);
+        expr_ref mk_gt(theory_var v, inf_eps const& val);
+
+        expr_ref mk_ineq(theory_var v, inf_eps const& val, bool is_strict);
 
         virtual void new_eq_eh(theory_var v1, theory_var v2, justification& j);
 
@@ -399,7 +401,6 @@ namespace smt {
     };
 
     struct sidl_ext {
-        // TODO: It doesn't need to be a rational, but a bignum integer.
         static const bool m_int_theory = true;
         typedef s_integer numeral;
         typedef s_integer fin_numeral;
@@ -415,13 +416,11 @@ namespace smt {
         rdl_ext() : m_epsilon(rational(), true) {}
     };
 
-    struct srdl_ext {
-        static const bool m_int_theory = false;
-        typedef inf_s_integer numeral;
-        typedef s_integer fin_numeral;
-        numeral m_epsilon;
-        srdl_ext() : m_epsilon(s_integer(0),true) {}
-    };
+    //
+    // there is no s_rational class, so 
+    // instead we use multi-precision rationals.
+    //
+    struct srdl_ext : public rdl_ext {};
 
     typedef theory_diff_logic<idl_ext>  theory_idl;
     typedef theory_diff_logic<sidl_ext> theory_fidl;

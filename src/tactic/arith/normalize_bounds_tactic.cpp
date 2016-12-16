@@ -52,9 +52,6 @@ class normalize_bounds_tactic : public tactic {
             updt_params_core(p);
         }
         
-        void set_cancel(bool f) {
-            m_rw.set_cancel(f);
-        }
         
         bool is_target(expr * var, rational & val) {
             bool strict;
@@ -83,11 +80,11 @@ class normalize_bounds_tactic : public tactic {
             return false;
         }
         
-        virtual void operator()(goal_ref const & in, 
-                                goal_ref_buffer & result, 
-                                model_converter_ref & mc, 
-                                proof_converter_ref & pc,
-                                expr_dependency_ref & core) {
+        void operator()(goal_ref const & in, 
+                        goal_ref_buffer & result, 
+                        model_converter_ref & mc, 
+                        proof_converter_ref & pc,
+                        expr_dependency_ref & core) {
             mc = 0; pc = 0; core = 0;
             bool produce_models = in->models_enabled();
             bool produce_proofs = in->proofs_enabled();
@@ -192,17 +189,8 @@ public:
     virtual void cleanup() {
         ast_manager & m = m_imp->m;
         imp * d = alloc(imp, m, m_params);
-        #pragma omp critical (tactic_cancel)
-        {
-            std::swap(d, m_imp);
-        }
+        std::swap(d, m_imp);        
         dealloc(d);
-    }
-
-protected:
-    virtual void set_cancel(bool f) {
-        if (m_imp)
-            m_imp->set_cancel(f);
     }
 };
 

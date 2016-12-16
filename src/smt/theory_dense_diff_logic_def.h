@@ -40,6 +40,11 @@ namespace smt {
     }
 
     template<typename Ext>
+    theory* theory_dense_diff_logic<Ext>::mk_fresh(context * new_ctx) { 
+        return alloc(theory_dense_diff_logic<Ext>, new_ctx->get_manager(), m_params); 
+    }
+
+    template<typename Ext>
     inline app * theory_dense_diff_logic<Ext>::mk_zero_for(expr * n) {
         return m_autil.mk_numeral(rational(0), get_manager().get_sort(n));
     }
@@ -592,7 +597,7 @@ namespace smt {
             ctx.set_conflict(ctx.mk_justification(theory_conflict_justification(get_id(), r, antecedents.size(), antecedents.c_ptr())));
 
             if (dump_lemmas()) {
-                ctx.display_lemma_as_smt_problem(antecedents.size(), antecedents.c_ptr(), false_literal, "");
+                ctx.display_lemma_as_smt_problem(antecedents.size(), antecedents.c_ptr(), false_literal);
             }
 
             return;
@@ -823,7 +828,7 @@ namespace smt {
         SASSERT(v != null_theory_var);
         numeral const & val = m_assignment[v];
         rational num = val.get_rational().to_rational() +  m_epsilon *  val.get_infinitesimal().to_rational();
-        return alloc(expr_wrapper_proc, m_factory->mk_value(num, is_int(v)));
+        return alloc(expr_wrapper_proc, m_factory->mk_num_value(num, is_int(v)));
     }
 
     // TBD: code is common to both sparse and dense difference logic solvers.
@@ -891,8 +896,8 @@ namespace smt {
     template<typename Ext>
     inf_eps_rational<inf_rational> theory_dense_diff_logic<Ext>::maximize(theory_var v, expr_ref& blocker, bool& has_shared) {
         typedef simplex::simplex<simplex::mpq_ext> Simplex;
-        Simplex S;
         ast_manager& m = get_manager();
+        Simplex S(m.limit());
         objective_term const& objective = m_objectives[v];
         has_shared = false;
         
@@ -997,9 +1002,10 @@ namespace smt {
                 m_assignment[i] = a;
                 // TBD: if epsilon is != 0, then adjust a by some small fraction.
             }
-            blocker = mk_gt(v, r);
+            inf_eps result(rational(0), r);
+            blocker = mk_gt(v, result);
             IF_VERBOSE(10, verbose_stream() << blocker << "\n";);
-            return inf_eps(rational(0), r);
+            return result;
         }
         default:
             TRACE("opt", tout << "unbounded\n"; );        
@@ -1029,18 +1035,18 @@ namespace smt {
     }
 
     template<typename Ext>
-    expr_ref theory_dense_diff_logic<Ext>::mk_gt(theory_var v, inf_rational const& val) {
+    expr_ref theory_dense_diff_logic<Ext>::mk_gt(theory_var v, inf_eps const& val) {
         return mk_ineq(v, val, true);
     }
 
     template<typename Ext>
     expr_ref theory_dense_diff_logic<Ext>::mk_ge(
-        filter_model_converter& fm, theory_var v, inf_rational const& val) {
+        filter_model_converter& fm, theory_var v, inf_eps const& val) {
         return mk_ineq(v, val, false);
     }
 
     template<typename Ext>
-    expr_ref theory_dense_diff_logic<Ext>::mk_ineq(theory_var v, inf_rational const& val, bool is_strict) {
+    expr_ref theory_dense_diff_logic<Ext>::mk_ineq(theory_var v, inf_eps const& val, bool is_strict) {
         ast_manager& m = get_manager();
         objective_term const& t = m_objectives[v];
         expr_ref e(m), f(m), f2(m);

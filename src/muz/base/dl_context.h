@@ -119,7 +119,6 @@ namespace datalog {
         virtual expr_ref try_get_formula(func_decl * pred) const = 0;
         virtual void display_output_facts(rule_set const& rules, std::ostream & out) const = 0;
         virtual void display_facts(std::ostream & out) const = 0;
-        virtual void display_profile(std::ostream& out) = 0;
         virtual void restrict_predicates(func_decl_set const& predicates) = 0;
         virtual bool result_contains_fact(relation_fact const& f) = 0;
         virtual void add_fact(func_decl* pred, relation_fact const& fact) = 0;
@@ -209,7 +208,6 @@ namespace datalog {
         execution_result   m_last_status;
         expr_ref           m_last_answer;
         DL_ENGINE          m_engine_type;
-        volatile bool      m_cancel;
 
 
 
@@ -273,6 +271,7 @@ namespace datalog {
         bool karr() const;
         bool scale() const;
         bool magic() const;
+        bool compress_unbound() const;
         bool quantify_arrays() const;
         bool instantiate_quantifiers() const;
         bool xform_bit_blast() const;        
@@ -377,7 +376,7 @@ namespace datalog {
         rule_set & get_rules() { flush_add_rules(); return m_rule_set; }
 
         void get_rules_as_formulas(expr_ref_vector& fmls, expr_ref_vector& qs, svector<symbol>& names);
-        void get_raw_rule_formulas(expr_ref_vector& fmls, svector<symbol>& names, vector<unsigned> &bounds);
+        void get_raw_rule_formulas(expr_ref_vector& fmls, svector<symbol>& names, unsigned_vector &bounds);
 
         void add_fact(app * head);
         void add_fact(func_decl * pred, const relation_fact & fact);
@@ -487,11 +486,11 @@ namespace datalog {
         //
         // -----------------------------------
 
-        void cancel();
-        bool canceled() const { return m_cancel; }
+        bool canceled() {
+            return m.canceled() && (m_last_status = CANCELED, true);
+        }
 
         void cleanup();
-        void reset_cancel() { cleanup(); }
 
         /**
            \brief check if query 'q' is satisfied under asserted rules and background.
@@ -582,6 +581,9 @@ namespace datalog {
         //undefined and private copy constructor and operator=
         context(const context&);
         context& operator=(const context&);
+
+        bool is_query(expr* e);
+        void display_rel_decl(std::ostream& out, func_decl* f);
     };
 
 };

@@ -277,7 +277,7 @@ namespace datalog {
     relation_plugin & relation_manager::get_relation_plugin(family_id kind) {
         SASSERT(kind>=0);
         SASSERT(kind<m_next_relation_fid);
-        relation_plugin * res;
+        relation_plugin * res = 0;
         VERIFY(m_kind2plugin.find(kind, res));
         return *res;
     }
@@ -463,12 +463,6 @@ namespace datalog {
             }
     }
 
-    void relation_manager::set_cancel(bool f) {
-        for (unsigned i = 0; i < m_relation_plugins.size(); ++i) {
-            m_relation_plugins[i]->set_cancel(f);
-        }
-    }
-
     std::string relation_manager::to_nice_string(const relation_element & el) const {
         uint64 val;
         std::stringstream stm;
@@ -494,7 +488,9 @@ namespace datalog {
     }
 
     std::string relation_manager::to_nice_string(const relation_sort & s) const {
-        return std::string(s->get_name().bare_str());
+        std::ostringstream strm;
+        strm << mk_pp(s, get_context().get_manager());
+        return strm.str();
     }
 
     std::string relation_manager::to_nice_string(const relation_signature & s) const {
@@ -1021,12 +1017,6 @@ namespace datalog {
             res = alloc(default_table_join_fn, t1.get_signature(), t2.get_signature(), col_cnt, cols1, cols2);
         }
         return res;
-    }
-
-    table_min_fn * relation_manager::mk_min_fn(const table_base & t,
-        unsigned_vector & group_by_cols, const unsigned col)
-    {
-        return t.get_plugin().mk_min_fn(t, group_by_cols, col);
     }
 
     class relation_manager::auxiliary_table_transformer_fn {
@@ -1632,6 +1622,8 @@ namespace datalog {
             m_union_fn = plugin.mk_union_fn(t, *m_aux_table, static_cast<table_base *>(0));
         }
 
+        virtual ~default_table_map_fn() {}
+
         virtual void operator()(table_base & t) {
             SASSERT(t.get_signature()==m_aux_table->get_signature());
             if(!m_aux_table->empty()) {
@@ -1687,6 +1679,8 @@ namespace datalog {
             m_row.resize(get_result_signature().size());
             m_former_row.resize(get_result_signature().size());
         }
+
+        virtual ~default_table_project_with_reduce_fn() {}
 
         virtual void modify_fact(table_fact & f) const {
             unsigned ofs=1;
