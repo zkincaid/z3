@@ -1917,10 +1917,10 @@ class MLComponent(Component):
             out.write('CXXFLAGS_OCAML=$(CXXFLAGS:/GL=)\n') # remove /GL; the ocaml tools don't like it.
 
             if IS_WINDOWS:
-                prefix_lib = '-L' + os.path.abspath(BUILD_DIR).replace('\\', '\\\\')
+                prefix_lib = os.path.abspath(BUILD_DIR).replace('\\', '\\\\')
             else:
-                prefix_lib = '-L' + PREFIX + '/lib'
-            substitutions = { 'LEXTRA': prefix_lib,
+                prefix_lib = PREFIX + '/lib'
+            substitutions = { 'LIB': prefix_lib,
                               'VERSION': "{}.{}.{}.{}".format(VER_MAJOR, VER_MINOR, VER_BUILD, VER_REVISION) }
 
             configure_file(os.path.join(self.src_dir, 'META.in'),
