@@ -742,12 +742,14 @@ public:
     }
 };
 
+#if 0 // ZK: multiple defs
 void proof_utils::reduce_hypotheses(proof_ref& pr) {
     ast_manager& m = pr.get_manager();
     class reduce_hypotheses0 reduce(m);
     reduce(pr);
     CTRACE("proof_utils", !is_closed(m, pr), tout << mk_pp(pr, m) << "\n";);
 }
+#endif
 
 class proof_is_closed {
     ast_manager&     m;
@@ -814,10 +816,13 @@ public:
     }
 };
 
+
+#if 0 // ZK:multiple defs
 bool proof_utils::is_closed(ast_manager& m, proof* p) {
     proof_is_closed checker(m);
     return checker(p);
 }
+#endif
 
 
 static void permute_unit_resolution(expr_ref_vector& refs, obj_map<proof,proof*>& cache, proof_ref& pr) {
@@ -909,11 +914,13 @@ static void permute_unit_resolution(expr_ref_vector& refs, obj_map<proof,proof*>
 
 
 // permute unit resolution over Theory lemmas to track premises.
+#if 0 // ZK: multiple defs
 void proof_utils::permute_unit_resolution(proof_ref& pr) {
     expr_ref_vector refs(pr.get_manager());
     obj_map<proof,proof*> cache;
     ::permute_unit_resolution(refs, cache, pr);
 }
+#endif
 
 class push_instantiations_up_cl {
     ast_manager& m;
@@ -1000,9 +1007,9 @@ private:
 
 };
 
+#if 0 // ZK: multiple defs
 void proof_utils::push_instantiations_up(proof_ref& pr) {
     push_instantiations_up_cl push(pr.get_manager());
     push(pr);
 }
-
-
+#endif
