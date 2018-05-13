@@ -17,8 +17,8 @@ Author:
 Revision History:
 
 --*/
-#include"sat_probing.h"
-#include"sat_solver.h"
+#include "sat/sat_probing.h"
+#include "sat/sat_solver.h"
 
 namespace sat {
     probing::probing(solver & _s, params_ref const & p):
@@ -60,7 +60,7 @@ namespace sat {
     bool probing::try_lit(literal l, bool updt_cache) {
         SASSERT(s.m_qhead == s.m_trail.size());
         SASSERT(s.value(l.var()) == l_undef);
-        literal_vector * implied_lits = updt_cache ? 0 : cached_implied_lits(l);
+        literal_vector * implied_lits = updt_cache ? nullptr : cached_implied_lits(l);
         if (implied_lits) {
             literal_vector::iterator it  = implied_lits->begin();
             literal_vector::iterator end = implied_lits->end();

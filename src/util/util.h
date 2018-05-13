@@ -19,33 +19,27 @@ Revision History:
 #ifndef UTIL_H_
 #define UTIL_H_
 
-#include"debug.h"
-#include"memory_manager.h"
+#include "util/debug.h"
+#include "util/memory_manager.h"
 #include<iostream>
 #include<climits>
 #include<limits>
+#include<stdint.h>
 
 #ifndef SIZE_MAX
 #define SIZE_MAX std::numeric_limits<std::size_t>::max()
 #endif
 
-#ifndef uint64
-typedef unsigned long long uint64;
-#endif
 
-COMPILE_TIME_ASSERT(sizeof(uint64) == 8);
+static_assert(sizeof(uint64_t) == 8, "64 bits please");
 
-#ifndef int64
-typedef long long int64;
-#endif
-
-COMPILE_TIME_ASSERT(sizeof(int64) == 8);
+static_assert(sizeof(int64_t) == 8, "64 bits");
 
 #ifndef INT64_MIN
-#define INT64_MIN static_cast<int64>(0x8000000000000000ull)
+#define INT64_MIN static_cast<int64_t>(0x8000000000000000ull)
 #endif
 #ifndef INT64_MAX
-#define INT64_MAX static_cast<int64>(0x7fffffffffffffffull)
+#define INT64_MAX static_cast<int64_t>(0x7fffffffffffffffull)
 #endif                              
 #ifndef UINT64_MAX
 #define UINT64_MAX 0xffffffffffffffffull
@@ -54,6 +48,7 @@ COMPILE_TIME_ASSERT(sizeof(int64) == 8);
 #ifdef _WINDOWS
 #define SSCANF sscanf_s
 #define SPRINTF sprintf_s
+#define _Exit exit
 #else
 #define SSCANF sscanf
 #define SPRINTF sprintf
@@ -109,9 +104,9 @@ inline unsigned next_power_of_two(unsigned v) {
    \brief Return the position of the most significant bit.
 */
 unsigned log2(unsigned v);
-unsigned uint64_log2(uint64 v);
+unsigned uint64_log2(uint64_t v);
 
-COMPILE_TIME_ASSERT(sizeof(unsigned) == 4);
+static_assert(sizeof(unsigned) == 4, "unsigned are 32 bits");
 
 // Return the number of 1 bits in v.
 static inline unsigned get_num_1bits(unsigned v) {
@@ -135,11 +130,11 @@ static inline unsigned get_num_1bits(unsigned v) {
 
 // Remark: on gcc, the operators << and >> do not produce zero when the second argument >= 64.
 // So, I'm using the following two definitions to fix the problem
-static inline uint64 shift_right(uint64 x, uint64 y) {
+static inline uint64_t shift_right(uint64_t x, uint64_t y) {
     return y < 64ull ? (x >> y) : 0ull;
 }
 
-static inline uint64 shift_left(uint64 x, uint64 y) {
+static inline uint64_t shift_left(uint64_t x, uint64_t y) {
     return y < 64ull ? (x << y) : 0ull;
 }
 
@@ -153,13 +148,13 @@ template<class T, size_t N> char (*ArraySizer(T (&)[N]))[N];
 template<typename IT>
 void display(std::ostream & out, const IT & begin, const IT & end, const char * sep, bool & first) {
     for(IT it = begin; it != end; ++it) {
-	if (first) {
-	    first = false;
-	}
-	else {
-	    out << sep;
-	}
-	out << *it;
+    if (first) {
+        first = false;
+    }
+    else {
+        out << sep;
+    }
+    out << *it;
     }
 }
 
@@ -172,9 +167,9 @@ void display(std::ostream & out, const IT & begin, const IT & end, const char * 
 template<typename T>
 struct delete_proc {
     void operator()(T * ptr) { 
-	if (ptr) {
-	    dealloc(ptr);
-	}
+    if (ptr) {
+        dealloc(ptr);
+    }
     }
 };
 
@@ -221,7 +216,7 @@ template<typename T>
 class scoped_ptr {
     T * m_ptr;
 public:
-    scoped_ptr(T * ptr=0):
+    scoped_ptr(T * ptr=nullptr):
         m_ptr(ptr) {
     }
 
@@ -238,7 +233,7 @@ public:
     }
 
     operator bool() const { 
-        return m_ptr != 0; 
+        return m_ptr != nullptr;
     }
     
     const T & operator*() const {
@@ -259,7 +254,7 @@ public:
 
     T * detach() {
         T* tmp = m_ptr;
-        m_ptr = 0;
+        m_ptr = nullptr;
         return tmp;
     }
 
@@ -322,7 +317,7 @@ bool compare_arrays(const T * array1, const T * array2, unsigned size) {
 template<typename T>
 void force_ptr_array_size(T & v, unsigned sz) {
     if (sz > v.size()) {
-        v.resize(sz, 0);
+        v.resize(sz);
     }
 }
 

@@ -18,12 +18,12 @@ Revision History:
 --*/
 #include<sstream>
 #include<iomanip>
-#include"mpfx.h"
-#include"mpn.h"
-#include"mpz.h"
-#include"mpq.h"
-#include"bit_util.h"
-#include"trace.h"
+#include "util/mpfx.h"
+#include "util/mpn.h"
+#include "util/mpz.h"
+#include "util/mpq.h"
+#include "util/bit_util.h"
+#include "util/trace.h"
 
 mpfx_manager::mpfx_manager(unsigned int_sz, unsigned frac_sz, unsigned initial_capacity) {
     SASSERT(initial_capacity > 0);
@@ -164,10 +164,10 @@ void mpfx_manager::set(mpfx & n, unsigned v) {
     SASSERT(check(n));
 }
 
-void mpfx_manager::set(mpfx & n, int64 v) {
+void mpfx_manager::set(mpfx & n, int64_t v) {
     if (m_int_part_sz == 1) {
-        if (v < -static_cast<int64>(static_cast<uint64>(UINT_MAX)) || 
-            v > static_cast<int64>(static_cast<uint64>(UINT_MAX)))
+        if (v < -static_cast<int64_t>(static_cast<uint64_t>(UINT_MAX)) ||
+            v > static_cast<int64_t>(static_cast<uint64_t>(UINT_MAX)))
             throw overflow_exception();
     }
     if (v == 0) {
@@ -175,11 +175,11 @@ void mpfx_manager::set(mpfx & n, int64 v) {
     }
     else {
         if (v < 0) {
-            set(n, static_cast<uint64>(-v));
+            set(n, static_cast<uint64_t>(-v));
             n.m_sign = 1;
         }
         else {
-            set(n, static_cast<uint64>(v));
+            set(n, static_cast<uint64_t>(v));
         }
     }
     SASSERT(is_int(n));
@@ -187,9 +187,9 @@ void mpfx_manager::set(mpfx & n, int64 v) {
     SASSERT(check(n));
 }
 
-void mpfx_manager::set(mpfx & n, uint64 v) {
+void mpfx_manager::set(mpfx & n, uint64_t v) {
     if (m_int_part_sz == 1) {
-        if (v > static_cast<uint64>(UINT_MAX))
+        if (v > static_cast<uint64_t>(UINT_MAX))
             throw overflow_exception();
     }
 
@@ -200,8 +200,8 @@ void mpfx_manager::set(mpfx & n, uint64 v) {
         allocate_if_needed(n);
         n.m_sign              = 0;
         unsigned * w          = words(n);
-        uint64 * _vp          = &v;
-        unsigned * _v         = 0;
+        uint64_t * _vp        = &v;
+        unsigned * _v         = nullptr;
         memcpy(&_v, &_vp, sizeof(unsigned*));
         for (unsigned i = 0; i < m_total_sz; i++) 
             w[i] = 0;
@@ -226,7 +226,7 @@ void mpfx_manager::set(mpfx & n, int num, unsigned den) {
     SASSERT(check(n));
 }
 
-void mpfx_manager::set(mpfx & n, int64 num, uint64 den) {
+void mpfx_manager::set(mpfx & n, int64_t num, uint64_t den) {
     scoped_mpfx a(*this), b(*this);
     set(a, num);
     set(b, den);
@@ -677,27 +677,27 @@ bool mpfx_manager::is_power_of_two(mpfx const & a) const {
     return is_power_of_two(a, k);
 }
 
-int64 mpfx_manager::get_int64(mpfx const & n) const {
+int64_t mpfx_manager::get_int64(mpfx const & n) const {
     SASSERT(is_int64(n));
     unsigned * w = words(n);
     w += m_frac_part_sz;
-    uint64 r = 0;
-    memcpy(&r, w, sizeof(uint64));
+    uint64_t r = 0;
+    memcpy(&r, w, sizeof(uint64_t));
     if (r == 0x8000000000000000ull) {
         SASSERT(is_neg(n));
         return INT64_MIN;
     }
     else {
-        return is_neg(n) ? -static_cast<int64>(r) : r;
+        return is_neg(n) ? -static_cast<int64_t>(r) : r;
     }
 }
 
-uint64 mpfx_manager::get_uint64(mpfx const & n) const {
+uint64_t mpfx_manager::get_uint64(mpfx const & n) const {
     SASSERT(is_uint64(n));
     unsigned * w = words(n);
     w += m_frac_part_sz;
-    uint64 r = 0;
-    memcpy(&r, w, sizeof(uint64));
+    uint64_t r = 0;
+    memcpy(&r, w, sizeof(uint64_t));
     return r;
 }
 

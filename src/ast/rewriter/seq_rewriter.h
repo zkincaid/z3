@@ -19,13 +19,13 @@ Notes:
 #ifndef SEQ_REWRITER_H_
 #define SEQ_REWRITER_H_
 
-#include"seq_decl_plugin.h"
-#include"arith_decl_plugin.h"
-#include"rewriter_types.h"
-#include"params.h"
-#include"lbool.h"
-#include"automaton.h"
-#include"symbolic_automata.h"
+#include "ast/seq_decl_plugin.h"
+#include "ast/arith_decl_plugin.h"
+#include "ast/rewriter/rewriter_types.h"
+#include "util/params.h"
+#include "util/lbool.h"
+#include "math/automata/automaton.h"
+#include "math/automata/symbolic_automata.h"
 
 class sym_expr {
     enum ty {
@@ -53,7 +53,9 @@ public:
     bool is_range() const { return m_ty == t_range; }
     sort* get_sort() const { return m_sort; }
     expr* get_char() const { SASSERT(is_char()); return m_t; }
-
+    expr* get_pred() const { SASSERT(is_pred()); return m_t; }
+    expr* get_lo() const { SASSERT(is_range()); return m_t; }
+    expr* get_hi() const { SASSERT(is_range()); return m_s; }
 };
 
 class sym_expr_manager {
@@ -87,6 +89,7 @@ public:
     ~re2automaton();
     eautomaton* operator()(expr* e);
     void set_solver(expr_solver* solver);
+    eautomaton* mk_product(eautomaton *a1, eautomaton *a2);
 };
 
 /**
@@ -98,6 +101,7 @@ class seq_rewriter {
     re2automaton   m_re2aut;
     expr_ref_vector m_es, m_lhs, m_rhs;
 
+    br_status mk_seq_unit(expr* e, expr_ref& result);
     br_status mk_seq_concat(expr* a, expr* b, expr_ref& result);
     br_status mk_seq_length(expr* a, expr_ref& result);
     br_status mk_seq_extract(expr* a, expr* b, expr* c, expr_ref& result);
@@ -119,6 +123,10 @@ class seq_rewriter {
     br_status mk_re_plus(expr* a, expr_ref& result);
     br_status mk_re_opt(expr* a, expr_ref& result);
     br_status mk_re_loop(unsigned num_args, expr* const* args, expr_ref& result);
+    br_status mk_re_range(expr* lo, expr* hi, expr_ref& result);
+
+    bool cannot_contain_prefix(expr* a, expr* b);
+    bool cannot_contain_suffix(expr* a, expr* b);
 
     bool set_empty(unsigned sz, expr* const* es, bool all, expr_ref_vector& lhs, expr_ref_vector& rhs);
     bool is_subsequence(unsigned n, expr* const* l, unsigned m, expr* const* r, 

@@ -19,10 +19,10 @@ Revision History:
 #ifndef SAT_CLAUSE_H_
 #define SAT_CLAUSE_H_
 
-#include"sat_types.h"
-#include"small_object_allocator.h"
-#include"id_gen.h"
-#include"map.h"
+#include "sat/sat_types.h"
+#include "util/small_object_allocator.h"
+#include "util/id_gen.h"
+#include "util/map.h"
 
 #ifdef _MSC_VER
 #pragma warning(disable : 4200)
@@ -115,7 +115,7 @@ namespace sat {
     class tmp_clause {
         clause * m_clause;
     public:
-        tmp_clause():m_clause(0) {}
+        tmp_clause():m_clause(nullptr) {}
         ~tmp_clause() { if (m_clause) dealloc_svect(m_clause); }
         clause * get() const { return m_clause; }
         void set(unsigned num_lits, literal const * lits, bool learned);

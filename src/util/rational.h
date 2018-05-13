@@ -19,7 +19,7 @@ Revision History:
 #ifndef RATIONAL_H_
 #define RATIONAL_H_
 
-#include"mpq.h"
+#include "util/mpq.h"
 
 class rational {
     mpq   m_val;
@@ -41,6 +41,7 @@ public:
     rational() {}
     
     rational(rational const & r) { m().set(m_val, r.m_val); }
+    rational(rational && r) : m_val(std::move(r.m_val)) {}
 
     explicit rational(int n) { m().set(m_val, n); }
 
@@ -52,19 +53,24 @@ public:
 
     rational(mpz const & z) { m().set(m_val, z); }
 
+    rational(double  z) { UNREACHABLE(); }
+
+    
     explicit rational(char const * v) { m().set(m_val, v); }
 
     struct i64 {};
-    rational(int64 i, i64) { m().set(m_val, i); }
+    rational(int64_t i, i64) { m().set(m_val, i); }
 
     struct ui64 {};
-    rational(uint64 i, ui64) { m().set(m_val, i); }
+    rational(uint64_t i, ui64) { m().set(m_val, i); }
     
     ~rational() { m().del(m_val); }
     
     mpq const & to_mpq() const { return m_val; }
 
     unsigned bitsize() const { return m().bitsize(m_val); }
+
+    unsigned storage_size() const { return m().storage_size(m_val); }
     
     void reset() { m().reset(m_val); }
 
@@ -92,9 +98,9 @@ public:
 
     bool is_int64() const { return m().is_int64(m_val); }
 
-    uint64 get_uint64() const { return m().get_uint64(m_val); }
+    uint64_t get_uint64() const { return m().get_uint64(m_val); }
 
-    int64 get_int64() const { return m().get_int64(m_val); }
+    int64_t get_int64() const { return m().get_int64(m_val); }
     
     bool is_unsigned() const { return is_uint64() && (get_uint64() < (1ull << 32)); }
 
@@ -107,7 +113,7 @@ public:
         if (is_small() && is_int()) return true; 
         // we don't assume that if it is small, then it is int32.
         if (!is_int64()) return false;
-        int64 v = get_int64();
+        int64_t v = get_int64();
         return INT_MIN <= v && v <= INT_MAX;
     }
 
@@ -127,6 +133,12 @@ public:
         return *this;
     }
 
+    rational & operator=(int v) {
+        *this = rational(v);
+        return *this;
+    }
+    rational & operator=(double v) { UNREACHABLE(); return *this; }
+
     friend inline rational numerator(rational const & r) { rational result; m().get_numerator(r.m_val, result.m_val); return result; }
     
     friend inline rational denominator(rational const & r) { rational result; m().get_denominator(r.m_val, result.m_val); return result; }
@@ -134,6 +146,11 @@ public:
     rational & operator+=(rational const & r) { 
         m().add(m_val, r.m_val, m_val);
         return *this; 
+    }
+
+    rational & operator+=(int r) {
+        (*this) += rational(r);
+        return *this;
     }
 
     rational & operator-=(rational const & r) { 
@@ -394,6 +411,7 @@ public:
         return num_bits;
     }
 
+    
 };
 
 inline bool operator!=(rational const & r1, rational const & r2) { 
@@ -404,6 +422,10 @@ inline bool operator>(rational const & r1, rational const & r2) {
     return operator<(r2, r1); 
 }
 
+inline bool operator<(rational const & r1, int r2) {
+    return r1 < rational(r2);
+}
+
 inline bool operator<=(rational const & r1, rational const & r2) { 
     return !operator>(r1, r2); 
 }
@@ -412,12 +434,41 @@ inline bool operator>=(rational const & r1, rational const & r2) {
     return !operator<(r1, r2); 
 }
 
+inline bool operator>(rational const & a, int b) {
+    return a > rational(b);
+}
+
+inline bool operator!=(rational const & a, int b) {
+    return !(a == rational(b));
+}
+
+inline bool operator==(rational const & a, int b) {
+    return a == rational(b);
+}
+
 inline rational operator+(rational const & r1, rational const & r2) { 
     return rational(r1) += r2; 
 }
 
+inline rational operator+(int r1, rational const & r2) {
+    return rational(r1) + r2;
+}
+
+inline rational operator+(rational const & r1, int r2) {
+    return r1 + rational(r2);
+}
+
+
 inline rational operator-(rational const & r1, rational const & r2) { 
     return rational(r1) -= r2; 
+}
+
+inline rational operator-(rational const & r1, int r2) {
+    return r1 - rational(r2);
+}
+
+inline rational operator-(int r1, rational const & r2) {
+    return rational(r1) - r2;
 }
 
 inline rational operator-(rational const & r) { 
@@ -430,8 +481,23 @@ inline rational operator*(rational const & r1, rational const & r2) {
     return rational(r1) *= r2; 
 }
 
+inline rational operator*(rational const & r1, int r2) {
+    return r1 * rational(r2);
+}
+inline rational operator*(int  r1, rational const & r2) {
+    return rational(r1) * r2;
+}
+
 inline rational operator/(rational const & r1, rational const & r2) { 
     return rational(r1) /= r2; 
+}
+
+inline rational operator/(rational const & r1, int r2) {
+    return r1 / rational(r2);
+}
+
+inline rational operator/(int r1, rational const &    r2) {
+    return rational(r1) / r2;
 }
 
 inline rational power(rational const & r, unsigned p) {

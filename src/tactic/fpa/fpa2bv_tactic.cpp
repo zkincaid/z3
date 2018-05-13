@@ -16,11 +16,11 @@ Author:
 Notes:
 
 --*/
-#include"tactical.h"
-#include"fpa2bv_rewriter.h"
-#include"simplify_tactic.h"
-#include"fpa2bv_tactic.h"
-#include"fpa2bv_model_converter.h"
+#include "tactic/tactical.h"
+#include "ast/fpa/fpa2bv_rewriter.h"
+#include "tactic/core/simplify_tactic.h"
+#include "tactic/fpa/fpa2bv_tactic.h"
+#include "tactic/fpa/fpa2bv_model_converter.h"
 
 class fpa2bv_tactic : public tactic {
     struct imp {
@@ -56,7 +56,7 @@ class fpa2bv_tactic : public tactic {
             m_produce_models      = g->models_enabled();
             m_produce_unsat_cores = g->unsat_core_enabled();
 
-            mc = 0; pc = 0; core = 0; result.reset();
+            mc = nullptr; pc = nullptr; core = nullptr; result.reset();
             tactic_report report("fpa2bv", *g);
             m_rw.reset();
 
@@ -93,7 +93,7 @@ class fpa2bv_tactic : public tactic {
                         expr * sgn, *sig, *exp;
                         m_conv.split_fp(new_curr, sgn, exp, sig);
                         result.back()->assert_expr(m.mk_eq(sgn, m_conv.bu().mk_numeral(0, 1)));
-                        result.back()->assert_expr(m.mk_eq(exp, m_conv.bu().mk_numeral(-1, m_conv.bu().get_bv_size(exp))));
+                        result.back()->assert_expr(m.mk_eq(exp, m_conv.bu().mk_bv_neg(m_conv.bu().mk_numeral(1, m_conv.bu().get_bv_size(exp)))));
                         result.back()->assert_expr(m.mk_eq(sig, m_conv.bu().mk_numeral(1, m_conv.bu().get_bv_size(sig))));
                     }
                 }
@@ -123,27 +123,27 @@ public:
         m_imp = alloc(imp, m, p);
     }
 
-    virtual tactic * translate(ast_manager & m) {
+    tactic * translate(ast_manager & m) override {
         return alloc(fpa2bv_tactic, m, m_params);
     }
 
-    virtual ~fpa2bv_tactic() {
+    ~fpa2bv_tactic() override {
         dealloc(m_imp);
     }
 
-    virtual void updt_params(params_ref const & p) {
+    void updt_params(params_ref const & p) override {
         m_params = p;
         m_imp->updt_params(p);
     }
 
-    virtual void collect_param_descrs(param_descrs & r) {
+    void collect_param_descrs(param_descrs & r) override {
     }
 
-    virtual void operator()(goal_ref const & in,
-                            goal_ref_buffer & result,
-                            model_converter_ref & mc,
-                            proof_converter_ref & pc,
-                            expr_dependency_ref & core) {
+    void operator()(goal_ref const & in,
+                    goal_ref_buffer & result,
+                    model_converter_ref & mc,
+                    proof_converter_ref & pc,
+                    expr_dependency_ref & core) override {
         try {
             (*m_imp)(in, result, mc, pc, core);
         }
@@ -152,7 +152,7 @@ public:
         }
     }
 
-    virtual void cleanup() {
+    void cleanup() override {
         imp * d = alloc(imp, m_imp->m, m_params);
         std::swap(d, m_imp);
         dealloc(d);

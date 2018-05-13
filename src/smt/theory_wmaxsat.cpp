@@ -18,10 +18,10 @@ Notes:
 --*/
 
 #include <typeinfo>
-#include "smt_context.h"
-#include "ast_pp.h"
-#include "theory_wmaxsat.h"
-#include "smt_justification.h"
+#include "smt/smt_context.h"
+#include "ast/ast_pp.h"
+#include "smt/theory_wmaxsat.h"
+#include "smt/smt_justification.h"
 
 namespace smt {
 
@@ -102,6 +102,7 @@ namespace smt {
         m_enabled.push_back(true);
         m_normalize = true;
         bool_var bv = register_var(var, true);
+        (void)bv;
         TRACE("opt", tout << "enable: v" << m_bool2var[bv] << " b" << bv << " " << mk_pp(var, get_manager()) << "\n";
               tout << wfml << "\n";);
         return var;
@@ -179,7 +180,7 @@ namespace smt {
 
     final_check_status theory_wmaxsat::final_check_eh() {
         if (m_normalize) normalize();
-        // std::cout << "cost: " << m_zcost << " min cost: " << m_zmin_cost << "\n";
+        TRACE("opt", tout << "cost: " << m_zcost << " min cost: " << m_zmin_cost << "\n";);
         return FC_DONE;
     }
 
@@ -286,7 +287,7 @@ namespace smt {
         
         ctx.set_conflict(
             ctx.mk_justification(
-                ext_theory_conflict_justification(get_id(), ctx.get_region(), lits.size(), lits.c_ptr(), 0, 0, 0, 0)));
+                ext_theory_conflict_justification(get_id(), ctx.get_region(), lits.size(), lits.c_ptr(), 0, nullptr, 0, nullptr)));
     }     
 
     bool theory_wmaxsat::max_unassigned_is_blocked() {
@@ -336,7 +337,7 @@ namespace smt {
         region& r = ctx.get_region();
         ctx.assign(lit, ctx.mk_justification(
                        ext_theory_propagation_justification(
-                           get_id(), r, lits.size(), lits.c_ptr(), 0, 0, lit, 0, 0)));
+                           get_id(), r, lits.size(), lits.c_ptr(), 0, nullptr, lit, 0, nullptr)));
     }                
 
 

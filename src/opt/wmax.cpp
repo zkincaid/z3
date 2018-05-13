@@ -16,14 +16,14 @@ Author:
 Notes:
 
 --*/
-#include "wmax.h"
-#include "uint_set.h"
-#include "ast_pp.h"
-#include "model_smt2_pp.h"
-#include "smt_theory.h"
-#include "smt_context.h"
-#include "theory_wmaxsat.h"
-#include "opt_context.h"
+#include "opt/wmax.h"
+#include "util/uint_set.h"
+#include "ast/ast_pp.h"
+#include "model/model_smt2_pp.h"
+#include "smt/smt_theory.h"
+#include "smt/smt_context.h"
+#include "smt/theory_wmaxsat.h"
+#include "opt/opt_context.h"
 
 namespace opt {
     // ----------------------------------------------------------
@@ -61,29 +61,34 @@ namespace opt {
                 return is_sat;
             }
             m_upper = m_lower;
-            bool was_sat = false;
-            expr_ref_vector disj(m), asms(m);
+            expr_ref_vector asms(m);
             vector<expr_ref_vector> cores;
+
             obj_map<expr, rational>::iterator it = soft.begin(), end = soft.end();
             for (; it != end; ++it) {
-                expr* c = assert_weighted(wth(), it->m_key, it->m_value);
+                assert_weighted(wth(), it->m_key, it->m_value);
                 if (!is_true(it->m_key)) {
-                    disj.push_back(m.mk_not(c));
                     m_upper += it->m_value;
                 }
             }
             wth().init_min_cost(m_upper - m_lower);
-            s().assert_expr(mk_or(disj));
             trace_bounds("wmax");
             
+            TRACE("opt", 
+                  s().display(tout); tout << "\n";
+                  tout << "lower: " << m_lower << " upper: " << m_upper << "\n";);
             while (!m.canceled() && m_lower < m_upper) {
                 //mk_assumptions(asms);
                 //is_sat = s().preferred_sat(asms, cores);
-                is_sat = s().check_sat(0, 0);
+                is_sat = s().check_sat(0, nullptr);
                 if (m.canceled()) {
                     is_sat = l_undef;
                 }
+                if (is_sat == l_undef) {
+                    break;
+                }
                 if (is_sat == l_false) {
+                    TRACE("opt", tout << "Unsat\n";);
                     break;
                 }
                 if (is_sat == l_true) {
@@ -94,10 +99,6 @@ namespace opt {
                     expr_ref fml = wth().mk_block();
                     //DEBUG_CODE(verify_cores(cores););
                     s().assert_expr(fml);
-                    was_sat = true;
-                }
-                else {
-                    //DEBUG_CODE(verify_cores(cores););
                 }
                 update_cores(wth(), cores);
                 wth().init_min_cost(m_upper - m_lower);
@@ -161,7 +162,7 @@ namespace opt {
         void verify_core(expr_ref_vector const& core) {
             s().push();
             s().assert_expr(core);
-            VERIFY(l_false == s().check_sat(0, 0));          
+            VERIFY(l_false == s().check_sat(0, nullptr));
             s().pop(1);
         }
 
@@ -215,7 +216,7 @@ namespace opt {
         rational remove_negations(smt::theory_wmaxsat& th, expr_ref_vector const& core, ptr_vector<expr>& keys, vector<rational>& weights) {
             rational min_weight(-1);
             for (unsigned i = 0; i < core.size(); ++i) {
-                expr* e;
+                expr* e = nullptr;
                 VERIFY(m.is_not(core[i], e));
                 keys.push_back(m_keys[e]);
                 rational weight = m_weights[e];

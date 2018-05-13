@@ -19,8 +19,8 @@ Revision History:
 #ifndef MPQ_H_
 #define MPQ_H_
 
-#include"mpz.h"
-#include"trace.h"
+#include "util/mpz.h"
+#include "util/trace.h"
 
 class mpq {
     mpz m_num;
@@ -31,6 +31,7 @@ class mpq {
 public:
     mpq(int v):m_num(v), m_den(1) {}
     mpq():m_den(1) {}
+    mpq(mpq && other) : m_num(std::move(other.m_num)), m_den(std::move(other.m_den)) {}
     void swap(mpq & other) { m_num.swap(other.m_num); m_den.swap(other.m_den); }
     mpz const & numerator() const { return m_num; }
     mpz const & denominator() const { return m_den; }
@@ -174,7 +175,7 @@ public:
 
     static bool is_small(mpz const & a) { return mpz_manager<SYNCH>::is_small(a); }
 
-    static bool is_small(mpq const & a) { return is_small(a.m_num) && is_small(a.m_den); }
+    static bool is_small(mpq const & a) { return is_small(a.m_num) && is_small(a.m_den); }    
 
     static mpq mk_q(int v) { return mpq(v); }
 
@@ -685,7 +686,7 @@ public:
         normalize(a);
     }
 
-    void set(mpq & a, int64 n, uint64 d) {
+    void set(mpq & a, int64_t n, uint64_t d) {
         SASSERT(d != 0);
         set(a.m_num, n);
         set(a.m_den, d);
@@ -717,16 +718,16 @@ public:
 
     void set(mpq & a, char const * val);
 
-    void set(mpz & a, int64 val) { mpz_manager<SYNCH>::set(a, val); }
+    void set(mpz & a, int64_t val) { mpz_manager<SYNCH>::set(a, val); }
 
-    void set(mpq & a, int64 val) {
+    void set(mpq & a, int64_t val) {
         set(a.m_num, val);
         reset_denominator(a);
     }
 
-    void set(mpz & a, uint64 val) { mpz_manager<SYNCH>::set(a, val); }
+    void set(mpz & a, uint64_t val) { mpz_manager<SYNCH>::set(a, val); }
     
-    void set(mpq & a, uint64 val) { 
+    void set(mpq & a, uint64_t val) {
         set(a.m_num, val);
         reset_denominator(a);
     }
@@ -741,6 +742,12 @@ public:
     void set(mpq & a, unsigned sz, digit_t const * digits) { 
         mpz_manager<SYNCH>::set(a.m_num, sz, digits); 
         reset_denominator(a); 
+    }
+
+    mpq dup(const mpq & source) {
+        mpq temp;
+        set(temp, source);
+        return temp;
     }
 
     void swap(mpz & a, mpz & b) { mpz_manager<SYNCH>::swap(a, b); }
@@ -758,17 +765,17 @@ public:
 
     bool is_int64(mpz const & a) const { return mpz_manager<SYNCH>::is_int64(a); }
 
-    uint64 get_uint64(mpz const & a) const { return mpz_manager<SYNCH>::get_uint64(a); }
+    uint64_t get_uint64(mpz const & a) const { return mpz_manager<SYNCH>::get_uint64(a); }
 
-    int64 get_int64(mpz const & a) const { return mpz_manager<SYNCH>::get_int64(a); }
+    int64_t get_int64(mpz const & a) const { return mpz_manager<SYNCH>::get_int64(a); }
 
     bool is_uint64(mpq const & a) const { return is_int(a) && is_uint64(a.m_num); }
 
     bool is_int64(mpq const & a) const { return is_int(a) && is_int64(a.m_num); }
 
-    uint64 get_uint64(mpq const & a) const { SASSERT(is_uint64(a)); return get_uint64(a.m_num); }
+    uint64_t get_uint64(mpq const & a) const { SASSERT(is_uint64(a)); return get_uint64(a.m_num); }
 
-    int64 get_int64(mpq const & a) const { SASSERT(is_int64(a)); return get_int64(a.m_num); }
+    int64_t get_int64(mpq const & a) const { SASSERT(is_int64(a)); return get_int64(a.m_num); }
 
     double get_double(mpz const & a) const { return mpz_manager<SYNCH>::get_double(a); }
 
@@ -784,6 +791,8 @@ public:
 
     unsigned bitsize(mpz const & a) { return mpz_manager<SYNCH>::bitsize(a); }
     unsigned bitsize(mpq const & a) { return is_int(a) ? bitsize(a.m_num) : bitsize(a.m_num) + bitsize(a.m_den); }
+    unsigned storage_size(mpz const & a) { return mpz_manager<SYNCH>::size_info(a); }
+    unsigned storage_size(mpq const & a) { return mpz_manager<SYNCH>::size_info(a.m_num) + mpz_manager<SYNCH>::size_info(a.m_den); }
 
     /**
        \brief Return true if the number is a perfect square, and 
@@ -833,9 +842,11 @@ public:
     }
 
     bool is_even(mpz const & a) { return mpz_manager<SYNCH>::is_even(a); }
-
+public:
     bool is_even(mpq const & a) { return is_int(a) && is_even(a.m_num); }
 
+    friend bool operator==(mpq const & a, mpq const & b) ;
+    friend bool operator>=(mpq const & a, mpq const & b);
 };
 
 typedef mpq_manager<true> synch_mpq_manager;

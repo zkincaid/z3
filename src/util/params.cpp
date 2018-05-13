@@ -16,15 +16,15 @@ Author:
 Notes:
 
 --*/
-#include"params.h"
-#include"rational.h"
-#include"symbol.h"
-#include"dictionary.h"
+#include "util/params.h"
+#include "util/rational.h"
+#include "util/symbol.h"
+#include "util/dictionary.h"
 
 params_ref params_ref::g_empty_params_ref;
 
 std::string norm_param_name(char const * n) {
-    if (n == 0)
+    if (n == nullptr)
         return "_";
     if (*n == ':')
         n++;
@@ -62,9 +62,9 @@ struct param_descrs::imp {
 
         info():
             m_kind(CPK_INVALID), 
-            m_descr(0), 
-            m_default(0),
-            m_module(0) {
+            m_descr(nullptr),
+            m_default(nullptr),
+            m_module(nullptr) {
         }
     };
 
@@ -130,21 +130,21 @@ struct param_descrs::imp {
         info i;
         if (m_info.find(name, i)) 
             return i.m_module;
-        return 0;
+        return nullptr;
     }
 
     char const * get_descr(symbol const & name) const {
         info i;
         if (m_info.find(name, i))
             return i.m_descr;
-        return 0;
+        return nullptr;
     }
 
     char const * get_default(symbol const & name) const {
         info i;
         if (m_info.find(name, i))
             return i.m_default;
-        return 0;
+        return nullptr;
     }
 
     unsigned size() const {
@@ -191,7 +191,7 @@ struct param_descrs::imp {
             out << " (" << d.m_kind << ")";
             if (include_descr)
                 out << " " << d.m_descr;
-            if (d.m_default != 0)
+            if (d.m_default != nullptr)
                 out << " (default: " << d.m_default << ")";
             out << "\n";
         }
@@ -334,7 +334,10 @@ public:
     }
 
     void inc_ref() { m_ref_count++; }
-    void dec_ref() { SASSERT(m_ref_count > 0); m_ref_count--; if (m_ref_count == 0) dealloc(this); }
+    void dec_ref() { 
+        SASSERT(m_ref_count > 0); 
+        if (--m_ref_count == 0) dealloc(this); 
+    }
 
     bool empty() const { return m_entries.empty(); }
     bool contains(symbol const & k) const;
@@ -510,7 +513,7 @@ params_ref::~params_ref() {
 }
 
 params_ref::params_ref(params_ref const & p):
-    m_params(0) {
+    m_params(nullptr) {
     operator=(p);
 }
 
@@ -554,7 +557,7 @@ params_ref & params_ref::operator=(params_ref const & p) {
 }
 
 void params_ref::copy(params_ref const & src) {
-    if (m_params == 0)
+    if (m_params == nullptr)
         operator=(src);
     else {
         init();
@@ -563,29 +566,27 @@ void params_ref::copy(params_ref const & src) {
 }
 
 void params_ref::copy_core(params const * src) {
-    if (src == 0)
+    if (src == nullptr)
         return;
-    svector<params::entry>::const_iterator it  = src->m_entries.begin();  
-    svector<params::entry>::const_iterator end = src->m_entries.end();    
-    for (; it != end; ++it) {
-        switch (it->second.m_kind) {
+    for (auto const& p : src->m_entries) {
+        switch (p.second.m_kind) {
         case CPK_BOOL:
-            m_params->set_bool(it->first, it->second.m_bool_value);
+            m_params->set_bool(p.first, p.second.m_bool_value);
             break;
         case CPK_UINT:
-            m_params->set_uint(it->first, it->second.m_uint_value);
+            m_params->set_uint(p.first, p.second.m_uint_value);
             break;
         case CPK_DOUBLE:
-            m_params->set_double(it->first, it->second.m_double_value);
+            m_params->set_double(p.first, p.second.m_double_value);
             break;
         case CPK_NUMERAL:
-            m_params->set_rat(it->first, *(it->second.m_rat_value));
+            m_params->set_rat(p.first, *(p.second.m_rat_value));
             break;
         case CPK_SYMBOL:
-            m_params->set_sym(it->first, symbol::mk_symbol_from_c_ptr(it->second.m_sym_value));
+            m_params->set_sym(p.first, symbol::mk_symbol_from_c_ptr(p.second.m_sym_value));
             break;
         case CPK_STRING:
-            m_params->set_str(it->first, it->second.m_str_value);
+            m_params->set_str(p.first, p.second.m_str_value);
             break;
         default:
             UNREACHABLE();

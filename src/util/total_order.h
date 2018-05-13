@@ -19,11 +19,11 @@ Revision History:
 #ifndef TOTAL_ORDER_H_
 #define TOTAL_ORDER_H_
 
-#include"util.h"
-#include"small_object_allocator.h"
-#include"map.h"
-#include"uint_map.h"
-#include"trace.h"
+#include "util/util.h"
+#include "util/small_object_allocator.h"
+#include "util/map.h"
+#include "util/uint_map.h"
+#include "util/trace.h"
 
 /**
    \brief An object for maintaining a total-order on sets of T values.
@@ -35,7 +35,7 @@ class total_order {
     struct cell {
         cell * m_next;
         cell * m_prev;
-        uint64 m_val;
+        uint64_t m_val;
         T      m_data;
     };
     
@@ -53,11 +53,11 @@ class total_order {
         m_base.m_val  = 0;
     }
 
-    uint64 v(cell * a) const { return a->m_val; }
+    uint64_t v(cell * a) const { return a->m_val; }
 
-    uint64 vb(cell * a) const { return v(a) - v(base()); }
+    uint64_t vb(cell * a) const { return v(a) - v(base()); }
 
-    uint64 vbn(cell * a) const { return a->m_next == base() ? UINT64_MAX : vb(a->m_next); }
+    uint64_t vbn(cell * a) const { return a->m_next == base() ? UINT64_MAX : vb(a->m_next); }
         
     cell * mk_cell(T const & a) {
         SASSERT(!m_map.contains(a));
@@ -79,28 +79,23 @@ class total_order {
     }
     
     cell * to_cell(T const & a) const {
-        void * r;
-#ifdef Z3DEBUG
-        bool ok =
-#endif
-        m_map.find(a, r);
-        SASSERT(ok);
+        void * r = m_map.find(a);
         return reinterpret_cast<cell*>(r);
     }
 
     void _insert_after(cell * a, cell * b) {
-        uint64 vb_a  = vb(a);
-        uint64 vbn_a = vbn(a);
+        uint64_t vb_a  = vb(a);
+        uint64_t vbn_a = vbn(a);
         SASSERT(vb_a < vbn_a);
         if (vbn_a < 2 || (vb_a > vbn_a - 2)) {
             TRACE("total_order", tout << "relabeling...\n"; tout << "\n";);
-            uint64  v0       = v(a);
-            unsigned sz      = size();
-            uint64 ideal_gap = UINT64_MAX / sz;
-            uint64 goal_gap  = ideal_gap / 32;
-            cell * c         = a->m_next->m_next;
-            unsigned j       = 2;
-            uint64 curr_gap  = (v(c) - v0) / j; 
+            uint64_t  v0       = v(a);
+            unsigned sz        = size();
+            uint64_t ideal_gap = UINT64_MAX / sz;
+            uint64_t goal_gap  = ideal_gap / 32;
+            cell * c           = a->m_next->m_next;
+            unsigned j         = 2;
+            uint64_t curr_gap  = (v(c) - v0) / j;
             while (j < sz && curr_gap < goal_gap) {
                 j++;
                 c         = c->m_next;
@@ -110,7 +105,7 @@ class total_order {
             if (j == sz)
                 curr_gap  = ideal_gap;
             c = a->m_next;
-            uint64 inc    = curr_gap;
+            uint64_t inc    = curr_gap;
             for (unsigned i = 0; i < j; i++) {
                 c->m_val  = v0 + inc;
                 c         = c->m_next;
@@ -121,7 +116,7 @@ class total_order {
             vbn_a = vbn(a);
         }
         SASSERT(vb_a <= vbn_a - 2);
-        uint64 vb_b = vb_a + ((vbn_a - vb_a)/2);
+        uint64_t vb_b = vb_a + ((vbn_a - vb_a)/2);
         SASSERT(vb_b > vb_a);
         SASSERT(vb_b < vbn_a);
         b->m_val          = vb_b + v(base()); 
